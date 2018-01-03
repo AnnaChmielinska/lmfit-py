@@ -719,8 +719,7 @@ class Model(object):
             key = self._name
         return {key: self.eval(params=params, **kwargs)}
 
-    def fit(self, data, params=None, weights=None, method='leastsq',
-            iter_cb=None, scale_covar=True, verbose=False, fit_kws=None,
+    def fit(self, data, params=None, statistic=None, weights=None, iter_cb=None, scale_covar=True, verbose=False, fit_kws=None,
             nan_policy=None, **kwargs):
         """Fit the model to the data using the supplied Parameters.
 
@@ -730,11 +729,13 @@ class Model(object):
             Array of data to be fit.
         params : Parameters, optional
             Parameters to use in fit (default is None).
+        statistic : Statistic, optional
+            Objective function and minimization method according to Statistic
+            (default if `ChiSquareStatistic` which uses `leastsq` minimization
+            method).
         weights : array_like of same size as `data`, optional
             Weights to use for the calculation of the fit residual (default
             is None).
-        method : str, optional
-            Name of fitting method to use (default is `'leastsq'`).
         iter_cb : callable, optional
             Callback function to call at each iteration (default is None).
         scale_covar : bool, optional
@@ -856,10 +857,9 @@ class Model(object):
         if fit_kws is None:
             fit_kws = {}
 
-        output = ModelResult(self, params, method=method, iter_cb=iter_cb,
-                             scale_covar=scale_covar, fcn_kws=kwargs,
-                             nan_policy=self.nan_policy, **fit_kws)
-        output.fit(data=data, weights=weights)
+        output = ModelResult(self, params, method=statistic.optimization_method, iter_cb=iter_cb, scale_covar=scale_covar, fcn_kws=kwargs,
+        nan_policy=self.nan_policy, **fit_kws)
+        output.fit(data=data, weights=weights, statistic=statistic)
         output.components = self.components
         return output
 
