@@ -589,10 +589,8 @@ class Model(object):
         msg = 'guess() not implemented for %s' % cname
         raise NotImplementedError(msg)
 
-    def _residual(self, params, data, weights, **kwargs):
-        """Return the residual.
-
-        Default residual: (data-model)*weights.
+    def _residual(self, params, data, weights, statistic, **kwargs):
+        """Return the residual according to given statistic.
 
         If the model returns complex values, the residual is computed by
         treating the real and imaginary parts separately. In this case,
@@ -608,7 +606,11 @@ class Model(object):
         The "ravels" throughout are necessary to support pandas.Series.
 
         """
-        diff = self.eval(params, **kwargs) - data
+        model = self.eval(params, **kwargs)
+        try:
+            diff = statistic.objective_func(model, data, weights)
+        except TypeError:
+            diff = statistic.objective_func(model, data)
 
         if diff.dtype == np.complex:
             # data/model are complex
