@@ -18,6 +18,7 @@ from .confidence import conf_interval
 from .jsonutils import HAS_DILL, decode4js, encode4js
 from .minimizer import validate_nan_policy
 from .printfuncs import ci_report, fit_report
+from .statistics import ChiSquareStatistic
 
 # Use pandas.isnull for aligning missing data if pandas is available.
 # otherwise use numpy.isnan
@@ -57,7 +58,7 @@ def _ensureMatplotlib(function):
 
 
 class Model(object):
-    _forbidden_args = ('data', 'weights', 'params')
+    _forbidden_args = ('data', 'weights', 'params', 'statistic')
     _invalid_ivar = "Invalid independent variable name ('%s') for function %s"
     _invalid_par = "Invalid parameter name ('%s') for function %s"
     _invalid_hint = "unknown parameter hint '%s' for param '%s'"
@@ -857,9 +858,9 @@ class Model(object):
         if fit_kws is None:
             fit_kws = {}
 
-        output = ModelResult(self, params, method=statistic.optimization_method, iter_cb=iter_cb, scale_covar=scale_covar, fcn_kws=kwargs,
+        output = ModelResult(self, params, statistic=statistic, iter_cb=iter_cb, scale_covar=scale_covar, fcn_kws=kwargs,
         nan_policy=self.nan_policy, **fit_kws)
-        output.fit(data=data, weights=weights, statistic=statistic)
+        output.fit(data=data, weights=weights)
         output.components = self.components
         return output
 
@@ -1126,8 +1127,8 @@ class ModelResult(Minimizer):
 
     """
 
-    def __init__(self, model, params, data=None, weights=None,
-                 method='leastsq', fcn_args=None, fcn_kws=None,
+    def __init__(self, model, params, data=None, statistic=ChiSquareStatistic(), weights=None,
+                 fcn_args=None, fcn_kws=None,
                  iter_cb=None, scale_covar=True, nan_policy='raise',
                  **fit_kws):
         """
@@ -1139,10 +1140,12 @@ class ModelResult(Minimizer):
             Parameters with initial values for model.
         data : array_like, optional
             Data to be modeled.
+        statistic : Statistic, optional
+            Objective function and minimization method according to Statistic
+            (default if `ChiSquareStatistic` which uses `leastsq` minimization
+            method).
         weights : array_like, optional
             Weights to multiply (data-model) for fit residual.
-        method : str, optional
-            Name of minimization method to use (default is `'leastsq'`).
         fcn_args : sequence, optional
             Positional arguments to send to model function.
         fcn_dict : dict, optional
@@ -1159,15 +1162,15 @@ class ModelResult(Minimizer):
         """
         self.model = model
         self.data = data
+        self.statistic = statistic
         self.weights = weights
-        self.method = method
         self.ci_out = None
         self.init_params = deepcopy(params)
         Minimizer.__init__(self, model._residual, params, fcn_args=fcn_args,
                            fcn_kws=fcn_kws, iter_cb=iter_cb, nan_policy=nan_policy,
                            scale_covar=scale_covar, **fit_kws)
 
-    def fit(self, data=None, params=None, weights=None, method=None,
+    def fit(self, data=None, params=None, weights=None, statistic=None,
             nan_policy=None, **kwargs):
         """Re-perform fit for a Model, given data and params.
 
@@ -1179,8 +1182,10 @@ class ModelResult(Minimizer):
             Parameters with initial values for model.
         weights : array_like, optional
             Weights to multiply (data-model) for fit residual.
-        method : str, optional
-            Name of minimization method to use (default is `'leastsq'`).
+        statistic : Statistic, optional
+            Objective function and minimization method according to Statistic
+            (default if `ChiSquareStatistic` which uses `leastsq` minimization
+            method).
         nan_policy : str, optional, one of 'raise' (default), 'propagate', or 'omit'.
             What to do when encountering NaNs when fitting Model.
         **kwargs : optional
@@ -1191,18 +1196,19 @@ class ModelResult(Minimizer):
             self.data = data
         if params is not None:
             self.init_params = params
+        if statistic is not None:
+            self.statistic = statistic
+        method = self.statistic.optimization_method
         if weights is not None:
             self.weights = weights
-        if method is not None:
-            self.method = method
         if nan_policy is not None:
             self.nan_policy = validate_nan_policy(nan_policy)
 
         self.ci_out = None
-        self.userargs = (self.data, self.weights)
+        self.userargs = (self.data, self.weights, self.statistic)
         self.userkws.update(kwargs)
         self.init_fit = self.model.eval(params=self.params, **self.userkws)
-        _ret = self.minimize(method=self.method)
+        _ret = self.minimize(method=method)
 
         for attr in dir(_ret):
             if not attr.startswith('_'):
