@@ -2,7 +2,8 @@
 
 """Provide the Statistic object.
 
-Statistic provides definition of objective function and optimization method for fitting process.
+Statistic provides definition of objective function and optimization method
+for fitting process.
 
 """
 
