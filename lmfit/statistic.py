@@ -8,10 +8,6 @@ for fitting process.
 """
 
 from abc import ABCMeta, abstractmethod
-import warnings
-import numpy as np
-import scipy
-import scipy.linalg
 
 class Statistic():
     """Abstract class for the Statistic object.
