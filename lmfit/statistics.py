@@ -157,8 +157,17 @@ class ChiSquareStatistic(Statistic):
         ndarray
 
         """
-        if weights is not None or self.variance_approximation is not None:
-            model, dependent_var = self._weight_input(model, dependent_var, weights)
+        if weights is not None:
+            model, dependent_var = self._weight_input(
+                model,
+                dependent_var,
+                weights
+                )
+        elif self.variance_approximation is not None:
+            model, dependent_var = self._weight_input(
+                model,
+                dependent_var
+                )
         return model - dependent_var
 
     def _weight_input(self, model, dependent_var, weights=None):
@@ -278,8 +287,17 @@ class ChiSquareStatisticVariableProjection(ChiSquareStatistic):
         ndarray
 
         """
-        if weights is not None or self.variance_approximation is not None:
-            model, dependent_var = self._weight_input(model, dependent_var, weights)
+        if weights is not None:
+            model, dependent_var = self._weight_input(
+                model,
+                dependent_var,
+                weights
+                )
+        elif self.variance_approximation is not None:
+            model, dependent_var = self._weight_input(
+                model,
+                dependent_var
+                )
         pseudoinv_model = scipy.linalg.pinv2(model)
         return model.dot(pseudoinv_model.dot(dependent_var)) - dependent_var
 
