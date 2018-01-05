@@ -616,15 +616,15 @@ class Model(object):
         if diff.dtype == np.complex:
             # data/model are complex
             diff = diff.ravel().view(np.float)
-            if weights is not None:
-                if weights.dtype == np.complex:
-                    # weights are complex
-                    weights = weights.ravel().view(np.float)
-                else:
-                    # real weights but complex data
-                    weights = (weights + 1j * weights).ravel().view(np.float)
-        if weights is not None:
-            diff *= weights
+        #     if weights is not None:
+        #         if weights.dtype == np.complex:
+        #             # weights are complex
+        #             weights = weights.ravel().view(np.float)
+        #         else:
+        #             # real weights but complex data
+        #             weights = (weights + 1j * weights).ravel().view(np.float)
+        # if weights is not None:
+        #     diff *= weights
         return np.asarray(diff).ravel()  # for compatibility with pandas.Series
 
     def _strip_prefix(self, name):
