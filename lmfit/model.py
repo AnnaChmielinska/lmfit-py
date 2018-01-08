@@ -561,9 +561,10 @@ class Model(object):
     def make_params_from_dict(self, dictionary):
         pars = Parameters()
         for param_name in dictionary:
-        pars.add(
-            param_name,
-            **dictionary.get(param_name)
+            pars.add(
+                param_name,
+                **dictionary.get(param_name)
+            )
         return pars
 
     def guess(self, data, **kws):
@@ -1879,3 +1880,4 @@ class ModelResult(Minimizer):
         plt.setp(ax_res.get_xticklabels(), visible=False)
         ax_fit.set_title('')
         return fig, gs
+
