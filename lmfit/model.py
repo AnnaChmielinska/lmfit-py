@@ -558,6 +558,14 @@ class Model(object):
             p._delay_asteval = False
         return params
 
+    def make_params_from_dict(self, dictionary):
+        pars = Parameters()
+        for param_name in dictionary:
+        pars.add(
+            param_name,
+            **dictionary.get(param_name)
+        return pars
+
     def guess(self, data, **kws):
         """Guess starting values for the parameters of a Model.
 
