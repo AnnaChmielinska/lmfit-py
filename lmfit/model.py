@@ -1,7 +1,7 @@
 """Concise nonlinear curve fitting."""
 from __future__ import print_function
 
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from copy import deepcopy
 from functools import wraps
 import inspect
@@ -34,7 +34,7 @@ def _align(var, mask, data):
     if isinstance(data, Series) and isinstance(var, Series):
         return var.reindex_like(data).dropna()
     elif mask is not None:
-        return var[mask]
+        return np.ma.array(var, mask=~mask) # return var[mask]
     return var
 
 
@@ -65,7 +65,7 @@ class Model(object):
     _hint_names = ('value', 'vary', 'min', 'max', 'expr')
 
     def __init__(self, func, independent_vars=None, param_names=None,
-                 nan_policy='raise', missing=None, prefix='', name=None, **kws):
+                 nan_policy='raise', missing=None, prefix='', suffixes=None, name=None, **kws):
         """Create a model from a user-supplied model function.
 
         The model function will normally take an independent variable
@@ -142,6 +142,7 @@ class Model(object):
         self.func = func
         self._prefix = prefix
         self._param_root_names = param_names  # will not include prefixes
+        self._suffixes = suffixes
         self.independent_vars = independent_vars
         self._func_allargs = []
         self._func_haskeywords = False
@@ -310,6 +311,11 @@ class Model(object):
         return self._prefix
 
     @property
+    def suffixes(self):
+        """Return Model suffixes."""
+        return self._suffixes
+
+    @property
     def param_names(self):
         """Return the parameters of the Model."""
         return self._param_names
@@ -389,6 +395,11 @@ class Model(object):
             self._prefix = ''
         for pname in self._param_root_names:
             names.append("%s%s" % (self._prefix, pname))
+        if self.suffixes:
+            _names = []
+            for suffix in self.suffixes:
+                _names += ['{}{}'.format(name, suffix) for name in names]
+            names = _names[:]
 
         # check variables names for validity
         # The implicit magic in fit() requires us to disallow some
@@ -397,6 +408,7 @@ class Model(object):
             if arg not in allargs or arg in self._forbidden_args:
                 raise ValueError(self._invalid_ivar % (arg, fname))
         for arg in names:
+            arg = self._strip_suffix(arg)
             if (self._strip_prefix(arg) not in allargs or
                     arg in self._forbidden_args):
                 raise ValueError(self._invalid_par % (arg, fname))
@@ -559,13 +571,13 @@ class Model(object):
         return params
 
     def make_params_from_dict(self, dictionary):
-        pars = Parameters()
+        params = Parameters()
         for param_name in dictionary:
-            pars.add(
+            params.add(
                 param_name,
                 **dictionary.get(param_name)
             )
-        return pars
+        return params
 
     def guess(self, data, **kws):
         """Guess starting values for the parameters of a Model.
@@ -642,19 +654,32 @@ class Model(object):
             name = name[npref:]
         return name
 
+    def _strip_suffix(self, name):
+        if not self.suffixes:
+            return name
+        for suffix in self.suffixes:
+            if name.endswith(suffix):
+                name = name.rstrip(suffix)
+        return name
+
     def make_funcargs(self, params=None, kwargs=None, strip=True):
         """Convert parameter values and keywords to function arguments."""
         if params is None:
             params = {}
         if kwargs is None:
             kwargs = {}
-        out = {}
+        out = defaultdict(list)
         out.update(self.opts)
         for name, par in params.items():
             if strip:
-                name = self._strip_prefix(name)
-            if name in self._func_allargs or self._func_haskeywords:
-                out[name] = par.value
+                    name = self._strip_prefix(name)
+            if self.suffixes is None:
+                if name in self._func_allargs or self._func_haskeywords:
+                    out[name] = par.value
+            else:
+                name = self._strip_suffix(name)
+                if name in self._func_allargs or self._func_haskeywords:
+                    out[name].append(par.value)
 
         # kwargs handled slightly differently -- may set param value too!
         for name, val in kwargs.items():
@@ -852,13 +877,12 @@ class Model(object):
         if self.nan_policy == 'omit':
             mask = ~isnull(data)
             if mask is not None:
-                data = data[mask]
+                data = np.ma.array(data, mask=~mask) # data = data[mask]
             if weights is not None:
                 weights = _align(weights, mask, data)
 
         # If independent_vars and data are alignable (pandas), align them,
         # and apply the mask from above if there is one.
-
         for var in self.independent_vars:
             if not np.isscalar(kwargs[var]):
                 # print("Model fit align ind dep ", var, mask.sum())
@@ -990,6 +1014,11 @@ class CompositeModel(Model):
         out = OrderedDict(self.left.eval_components(**kwargs))
         out.update(self.right.eval_components(**kwargs))
         return out
+
+    @property
+    def suffixes(self):
+        """Return Model suffixes."""
+        return self.left.suffixes
 
     @property
     def param_names(self):
