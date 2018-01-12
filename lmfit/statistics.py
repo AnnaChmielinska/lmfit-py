@@ -210,10 +210,10 @@ class ChiSquareStatistic(Statistic):
 
         """
         arr_weighted = np.copy(array)
-        try:
-            arr_weighted *= weights
-        except err:
-            raise err
+        # try:
+        arr_weighted *= weights
+        # except err:
+        #     raise err
             # ncols, *nrows = array.shape
             # arr_weighted *= np.tile(weights, (*nrows, 1)).T
         return arr_weighted
